@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Bash(cp \"/home/ds/Documents/Group-19/4DS4 Project 2.docx\" report2.docx)",
+      "Bash(unzip -o report2.docx -d report2_extracted)"
+    ]
+  }
+}
