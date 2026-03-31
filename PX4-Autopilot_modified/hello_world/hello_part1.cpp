@@ -23,7 +23,9 @@ extern "C" __EXPORT int hello_world_main(int argc, char *argv[]);
 // converts RC value (1000-2000) to a float between out_min and out_max
 static float rc_map(uint16_t rc_val, float out_min, float out_max)
 {
+    //(rc_value -1000)/ (2000-1000)
     float t = (float)(rc_val - RC_MIN) / (float)(RC_MAX - RC_MIN);
+    //clamp
     if (t < 0.0f) t = 0.0f;
     if (t > 1.0f) t = 1.0f;
     return out_min + t * (out_max - out_min);
