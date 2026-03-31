@@ -7,12 +7,12 @@
 #include <uORB/topics/test_motor.h>
 
 // FMU output pins (0-based, so pin 1 = 0)
-#define DC_MOTOR        0
-#define SERVO           1
+#define DC_MOTOR        0 //connected to output pin 1 
+#define SERVO           1 //connected to output pin 2 
 
 // FlySky RC channels (0-based)
-#define RC_THROTTLE_CH  2   // CH3: left stick vertical
-#define RC_STEERING_CH  0   // CH1: right stick horizontal
+#define RC_THROTTLE_CH  2   // CH3: left stick vertical, array index 2 
+#define RC_STEERING_CH  0   // CH1: right stick horizontal, array index 0 
 
 // RC signal range in microseconds
 #define RC_MIN  1000
@@ -33,12 +33,13 @@ static float rc_map(uint16_t rc_val, float out_min, float out_max)
 
 int hello_world_main(int argc, char *argv[])
 {
+    //create publisher for test_motor & subscriber to the input_rc
     uORB::Publication<test_motor_s> motor_pub{ORB_ID(test_motor)};
     uORB::Subscription rc_sub{ORB_ID(input_rc)};
 
-    input_rc_s   rc_data{};
-    test_motor_s motor_cmd{};
-    test_motor_s servo_cmd{};
+    input_rc_s   rc_data{}; //stores latest RC input message
+    test_motor_s motor_cmd{}; //hold DC motor command before publishing 
+    test_motor_s servo_cmd{}; //hold servo command before publishing 
 
     PX4_INFO("RC motor/servo control started.");
     PX4_INFO("Throttle -> CH%d | Steering -> CH%d", RC_THROTTLE_CH + 1, RC_STEERING_CH + 1);
@@ -46,7 +47,7 @@ int hello_world_main(int argc, char *argv[])
 
     while (1)
     {
-        if (rc_sub.update(&rc_data))
+        if (rc_sub.update(&rc_data)) // new RC message has arrived 
         {
             if (rc_data.rc_lost)
             {
@@ -60,6 +61,9 @@ int hello_world_main(int argc, char *argv[])
                 // steering: 1000=full left, 1500=center, 2000=full right
                 float servo_val = rc_map(rc_data.values[RC_STEERING_CH], 0.0f, 1.0f);
 
+                //after rc_map() computes motor_val and servo_val, they are written 
+                //into a test_motor_s struct and published 
+                
                 // send motor speed
                 motor_cmd.timestamp       = hrt_absolute_time();
                 motor_cmd.motor_number    = DC_MOTOR;
@@ -85,7 +89,7 @@ int hello_world_main(int argc, char *argv[])
             }
         }
 
-        px4_usleep(200000); // 5 Hz
+        px4_usleep(200000); // 5 Hz, sleeps for 0.2 seconds, loop runs about 5 times per second 
     }
 
     // stop everything on exit
