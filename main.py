@@ -1,3 +1,5 @@
+#runs on the raspberry pi, its job is to look with the camera, listen with the ultrasonic sensor
+#make decisions and send the into to FMU 
 import RPi.GPIO as GPIO
 import cv2
 import numpy as np
@@ -11,7 +13,7 @@ GPIO_ECHO = 24
 
 # open camera
 cap = cv2.VideoCapture(0)
-StepSize = 5
+StepSize = 5 #when scanning image check every 5 columns 
 
 # set up GPIO pins for ultrasonic
 def ultrasonic_setup():
@@ -51,6 +53,7 @@ def get_distance():
     return distance
 
 # splits a list into chunks of size n
+    #used later to split camera edge points into left, middle and right section 
 def getChunks(l, n):
     """Yield successive n-sized chunks from l."""
     a = []
@@ -60,18 +63,19 @@ def getChunks(l, n):
 
 # reads a frame and returns preferred direction: 0=left, 1=forward, 2=right
 def get_direction():
-    ret, frame = cap.read()
+    ret, frame = cap.read() # read one frame from camera 
     if not ret:
         return None
 
     # flip, filter noise, detect edges
-    img = cv2.flip(frame, 0)
-    blur = cv2.bilateralFilter(img, 9, 40, 40)
+    img = cv2.flip(frame, 0) #flip image vertically 
+    blur = cv2.bilateralFilter(img, 9, 40, 40) 
     edges = cv2.Canny(blur, 50, 100)
     img_h = img.shape[0] - 1
     img_w = img.shape[1] - 1
 
     # scan each column from bottom up, grab the first edge pixel found
+    #objects closer to the car show uo lower in the image 
     EdgeArray = []
     for j in range(0, img_w, StepSize):
         pixel = (j, 0)
@@ -81,7 +85,7 @@ def get_direction():
                 EdgeArray.append(pixel)
                 break
 
-    if len(EdgeArray) == 0:
+    if len(EdgeArray) == 0: #no edges found
         return None
 
     # split edge pixels into 3 vertical chunks (left, center, right)
@@ -89,7 +93,7 @@ def get_direction():
 
     #c = []
     distance = []
-    for i in range(len(chunks)):
+    for i in range(len(chunks)): #for each chunk 1 find everage point 
         x_vals = []
         y_vals = []
         for (x, y) in chunks[i]:
@@ -98,6 +102,7 @@ def get_direction():
         avg_x = int(np.average(x_vals))
         avg_y = int(np.average(y_vals))
         #c.append([avg_y, avg_x])
+        
         # distance from bottom-center of frame to mean edge point of this chunk
         distance.append(math.sqrt((avg_x - 320) ** 2 + (avg_y - 640) ** 2))
         cv2.line(img, (320, 640), (avg_x, avg_y), (0, 0, 255), 2)
@@ -105,7 +110,7 @@ def get_direction():
     cv2.imshow("frame", img)
     cv2.waitKey(5)
 
-    if len(distance) < 3:
+    if len(distance) < 3: #if there are not 3 proper chunks return none 
         return None
 
     # shortest distance = least obstruction = preferred direction
@@ -125,7 +130,9 @@ ultrasonic_setup()
 
 # connect to FMU over USB, baud must match mavlink start command on FMU
 the_connection = mavutil.mavlink_connection('/dev/ttyACM0', baud=2000000)
-the_connection.wait_heartbeat()
+
+the_connection.wait_heartbeat() #wait until FMU sends a heartbeat 
+#print info showing connection worked 
 print("Heartbeat from system (system %u component %u)" % (the_connection.target_system,
       the_connection.target_component))
 
@@ -139,6 +146,7 @@ while True:
     # pack both values into one MAVLink debug message
     # ind = direction, value = distance in cm
     message = mavutil.mavlink.MAVLink_debug_message(0, direction, dist)
+    #sends to FMU 
     the_connection.mav.send(message)
 
     print("Sent -> direction: %d  distance: %.1f cm" % (direction, dist))
